@@ -1,2 +1,23 @@
+CompileFlags:
+  Add:
+    - -std=c++20
+    - -fms-extensions
+    - -fms-compatibility
+    - -fms-compatibility-version=19.35
+    - -Wno-everything
+    - -w
+    - -ferror-limit=0
+    - -I./nexvr-client/src
+    - -I./nexvr-client
+    - -I./build/_deps/minhook-src/include
+    - -I./build/_deps/json-src/single_include
+    - -I./build/_deps/openxr-src/include
+    - -I./build/_deps/imgui-src
+    - -I./build/_deps/googletest-src/googletest/include
+    - -I./deps/directml/include
+
 Diagnostics:
-  Suppress: "*"
+  Suppress:
+    - "fatal_too_many_errors"
+    - "pp_file_not_found"
+    - "*"

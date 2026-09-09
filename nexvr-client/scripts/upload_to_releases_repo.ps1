@@ -73,7 +73,7 @@ foreach ($file in $filesToUpload) {
 
     Write-Host ">>> Uploading $fileName ($fileSizeMB MB)..."
     $escapedName = [Uri]::EscapeDataString($fileName)
-    $uploadUri = "$uploadBase?name=$escapedName"
+    $uploadUri = "${uploadBase}?name=${escapedName}"
 
     $curlArgs = @(
         "-s",
@@ -84,7 +84,7 @@ foreach ($file in $filesToUpload) {
         $uploadUri
     )
 
-    $result = & curl.exe @curlArgs
+    & curl.exe @curlArgs | Out-Null
     Write-Host ">>> Upload complete for $fileName"
 }
 
