@@ -613,7 +613,7 @@ bool Initialize() {
         g_targetResizeBuffers = resizeBuffersAddress;
         MH_EnableHook(resizeBuffersAddress);
     } else {
-        LOG_ERROR("DX12Hook: MH_CreateHook failed for ResizeBuffers");
+        LOG_INFO("DX12Hook: ResizeBuffers already hooked (DX11 hook owns it).");
     }
 
     if (IsValidHookTarget(resizeBuffers1Address) &&

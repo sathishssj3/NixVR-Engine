@@ -1,6 +1,7 @@
 #include "rendering/dx11/dx11_lifecycle_manager.h"
 #include "core/logger.h"
 #include "core/fault_injector.h"
+#include <d3d11_1.h>
 
 namespace vrinject {
 
@@ -21,7 +22,17 @@ RenderFrameSnapshot Dx11LifecycleManager::ProcessPresent(IDXGISwapChain* swapCha
 
     RenderState currentState = m_state.load(std::memory_order_relaxed);
 
-    if (currentState == RenderState::DEGRADED || currentState == RenderState::SHUTTING_DOWN || currentState == RenderState::STOPPED) {
+    if (currentState == RenderState::DEGRADED) {
+        // Self-healing: If a new swapchain is presented after degradation (e.g. game destroyed an intro/splash
+        // swapchain and created the real game swapchain), reset degradation state and attempt re-discovery.
+        if (swapChain && swapChain != m_swapchainResources.swapChain.Get()) {
+            LOG_INFO("Dx11LifecycleManager: New swapchain (%p) presented after degradation. Resetting state to attempt discovery.", swapChain);
+            m_state.store(RenderState::UNINITIALIZED, std::memory_order_release);
+            currentState = RenderState::UNINITIALIZED;
+        } else {
+            return CreateSnapshot();
+        }
+    } else if (currentState == RenderState::SHUTTING_DOWN || currentState == RenderState::STOPPED) {
         // Safe pass-through mode
         return CreateSnapshot();
     }
@@ -60,8 +71,22 @@ void Dx11LifecycleManager::Discover(IDXGISwapChain* swapChain) {
 
     if (FaultInjector::ShouldFail(Dx11FaultPoint::DISCOVER_DEVICE) || 
         FAILED(swapChain->GetDevice(__uuidof(ID3D11Device), (void**)&m_deviceResources.device))) {
-        Degrade("Failed to query ID3D11Device from SwapChain");
-        return;
+        // Fallback 1: Query IDXGIDevice then QueryInterface for ID3D11Device
+        Microsoft::WRL::ComPtr<IDXGIDevice> dxgiDevice;
+        if (SUCCEEDED(swapChain->GetDevice(__uuidof(IDXGIDevice), (void**)&dxgiDevice)) && dxgiDevice) {
+            dxgiDevice.As(&m_deviceResources.device);
+        }
+        // Fallback 2: Query ID3D11Device1 then cast/As to ID3D11Device
+        if (!m_deviceResources.device) {
+            Microsoft::WRL::ComPtr<ID3D11Device1> device1;
+            if (SUCCEEDED(swapChain->GetDevice(__uuidof(ID3D11Device1), (void**)&device1)) && device1) {
+                device1.As(&m_deviceResources.device);
+            }
+        }
+        if (!m_deviceResources.device) {
+            Degrade("Failed to query ID3D11Device from SwapChain");
+            return;
+        }
     }
 
     m_deviceResources.device->GetImmediateContext(&m_deviceResources.immediateContext);

@@ -1,18 +1,18 @@
 {
-  "engineVersion": "0.1.8",
-  "timestamp": 1788703981550,
-  "changelog": "Hogwarts Legacy & Universal Steam OTA Injection Hotfix v0.1.8",
+  "engineVersion": "0.1.9",
+  "timestamp": 1788975000000,
+  "changelog": "Sekiro: Shadows Die Twice & DX11 SteamVR Display Hotfix v0.1.9",
   "features": [
-    "Resilient Host Executable Discovery: ConfigManager automatically discovers per-game profiles from host process executable directory, eliminating OTA config loss",
-    "Elevated DLL Deployment: vr-inject-cli automatically synchronizes and deploys updated vrinject.dll directly to protected game directories without stale downgrades",
-    "Profile Invariant Protection: Engine dependency synchronization preserves existing per-game vrinject.json without overwriting",
-    "OTA Profile Distribution: Dynamic over-the-air synchronization of curated game profiles to client AppData"
+    "Resilient Process Candidate Detection: Launcher falls back gracefully when Windows UAC token restrictions block process path inspection on Steam games",
+    "Self-Healing DX11 Swapchain Lifecycle: Dx11LifecycleManager recovers automatically when games switch from intro/splash swapchains to the main game swapchain",
+    "Robust Direct3D 11 Device Querying: Added IDXGIDevice and ID3D11Device1 query interface fallbacks on swapchain discovery",
+    "Vulkan Coexistence: DXGIFactoryHook allows DXGI swapchain capture while SteamVR/Steam Overlay Vulkan layer is in background initialization"
   ],
   "fixes": [
-    "Fixed Hogwarts Legacy and Steam titles failing to display in VR after OTA launcher push update",
-    "Fixed stale vrinject.dll from resourcesPath clobbering updated hotfixed engine binaries",
-    "Fixed ConfigManager defaulting to generic DX11 profile when injected from outside game directory",
-    "Fixed launcher profile search paths to include downloaded OTA profiles"
+    "Fixed Sekiro and DX11 Steam titles displaying only on desktop monitor while SteamVR remains on starry idle background",
+    "Fixed candidate drop in injectionManager when non-elevated Get-Process query returns Access Denied",
+    "Fixed DXGIFactoryHook prematurely ignoring DXGI swapchains when Vulkan is INITIALIZING rather than RUNNING",
+    "Fixed Dx11LifecycleManager permanent degradation when initial swapchain fails device query"
   ],
   "files": [
     "vrinject.dll",

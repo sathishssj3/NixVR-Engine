@@ -19,8 +19,8 @@ std::mutex g_mutex;
 HRESULT __stdcall hkCreateSwapChain(IDXGIFactory* pFactory, IUnknown* pDevice, DXGI_SWAP_CHAIN_DESC* pDesc, IDXGISwapChain** ppSwapChain) {
     LOG_INFO("DXGIFactoryHook: CreateSwapChain called");
 
-    if (vrinject::vulkan::VulkanLifecycleManager::Get().GetState() != vrinject::RenderState::UNINITIALIZED) {
-        LOG_INFO("DXGIFactoryHook: Vulkan is active. Ignoring DXGI swapchain creation to avoid driver conflict.");
+    if (vrinject::vulkan::VulkanLifecycleManager::Get().GetState() == vrinject::RenderState::RUNNING) {
+        LOG_INFO("DXGIFactoryHook: Vulkan is actively presenting. Ignoring DXGI swapchain creation to avoid driver conflict.");
         return OriginalCreateSwapChain(pFactory, pDevice, pDesc, ppSwapChain);
     }
 
@@ -54,8 +54,8 @@ HRESULT __stdcall hkCreateSwapChain(IDXGIFactory* pFactory, IUnknown* pDevice, D
 HRESULT __stdcall hkCreateSwapChainForHwnd(IDXGIFactory2* pFactory, IUnknown* pDevice, HWND hWnd, const DXGI_SWAP_CHAIN_DESC1* pDesc, const DXGI_SWAP_CHAIN_FULLSCREEN_DESC* pFullscreenDesc, IDXGIOutput* pRestrictToOutput, IDXGISwapChain1** ppSwapChain) {
     LOG_INFO("DXGIFactoryHook: CreateSwapChainForHwnd called");
 
-    if (vrinject::vulkan::VulkanLifecycleManager::Get().GetState() != vrinject::RenderState::UNINITIALIZED) {
-        LOG_INFO("DXGIFactoryHook: Vulkan is active. Ignoring DXGI swapchain creation to avoid driver conflict.");
+    if (vrinject::vulkan::VulkanLifecycleManager::Get().GetState() == vrinject::RenderState::RUNNING) {
+        LOG_INFO("DXGIFactoryHook: Vulkan is actively presenting. Ignoring DXGI swapchain creation to avoid driver conflict.");
         return OriginalCreateSwapChainForHwnd(pFactory, pDevice, hWnd, pDesc, pFullscreenDesc, pRestrictToOutput, ppSwapChain);
     }
 

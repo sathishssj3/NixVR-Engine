@@ -39,13 +39,17 @@ async function terminatePid(pid: number, force = false): Promise<void> {
 
 async function getProcessPath(pid: number): Promise<string> {
   if (!Number.isSafeInteger(pid) || pid <= 0) return '';
-  const command = `(Get-Process -Id ${pid} -ErrorAction Stop).Path`;
-  const { stdout } = await execFileAsync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-Command', command],
-    { encoding: 'utf-8', timeout: 3000, windowsHide: true }
-  );
-  return stdout.trim();
+  try {
+    const command = `try { (Get-Process -Id ${pid} -ErrorAction Stop).Path } catch { (Get-CimInstance Win32_Process -Filter "ProcessId = ${pid}" -ErrorAction SilentlyContinue).ExecutablePath }`;
+    const { stdout } = await execFileAsync(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', command],
+      { encoding: 'utf-8', timeout: 3000, windowsHide: true }
+    );
+    return stdout.trim();
+  } catch {
+    return '';
+  }
 }
 
 function stopActiveLogWatch(): void {
@@ -95,7 +99,11 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
       };
     }
     const logPath = safeGamePath(installPath, 'vrinject.log');
-    fs.writeFileSync(logPath, '');
+    try {
+      fs.writeFileSync(logPath, '');
+    } catch {
+      // Game directory might be write-protected for non-elevated token; elevated CLI will create/append to it.
+    }
     activeLogPath = logPath;
     let lastSize = 0;
 
@@ -319,6 +327,11 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
             } catch (e) {}
           }
         }
+
+        try {
+          const stageCfg = path.join(updatesDir, 'vrinject.json');
+          fs.writeFileSync(stageCfg, JSON.stringify(activeConfig, null, 2), 'utf-8');
+        } catch (e) {}
       }
     } catch (error) {
       console.warn('Non-fatal error copying shader/model assets to target directory:', error);
@@ -384,6 +397,21 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
           // Otherwise keep as fallback (in case it's an indie title without subfolders)
           if (!selectedCandidate) {
             selectedCandidate = { ...candidate, path: processPath };
+          }
+        }
+
+        // Resilient Fallback: If getProcessPath was blocked by Windows token/security permissions
+        // (e.g. UAC / admin token restrictions on Steam titles like Sekiro), we already verified that
+        // tasklist.exe found targetExeName. Select the candidate with primary game memory.
+        if (!selectedCandidate && candidates.length > 0) {
+          const sorted = [...candidates].sort((a, b) => b.memory - a.memory);
+          const best = sorted[0];
+          if (best.memory > 30000 || attempts >= 20) {
+            selectedCandidate = {
+              pid: best.pid,
+              memory: best.memory,
+              path: path.join(targetExeDir, targetExeName),
+            };
           }
         }
 
