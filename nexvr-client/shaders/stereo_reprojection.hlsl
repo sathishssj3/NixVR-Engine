@@ -91,8 +91,6 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     {
         // 100% Full FOV in 2D mode - no letterboxing or black bars
         float4 outColor = baseColor;
-        // Exact gamma 2.2 conversion: compensates for OpenXR compositor gamma to deliver native color fidelity
-        outColor.rgb = pow(max(outColor.rgb, 0.0f), 2.2f);
         outColor.a = 1.0f;
         
         OutLeftEye[pixelPos] = outColor;
@@ -106,7 +104,6 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
     if (depth <= 0.000001f || depth >= 0.999999f)
     {
         float4 hudColor = baseColor;
-        hudColor.rgb = pow(max(hudColor.rgb, 0.0f), 2.2f);
         hudColor.a = 1.0f;
         OutLeftEye[pixelPos] = hudColor;
         OutRightEye[pixelPos] = hudColor;
@@ -154,9 +151,9 @@ void CSMain(uint3 dispatchThreadId : SV_DispatchThreadID)
         }
     }
     
-    // Exact gamma 2.2 conversion: preserves rich native lighting, darks, and specular highlights
-    leftColor.rgb = pow(max(leftColor.rgb, 0.0f), 2.2f);
-    rightColor.rgb = pow(max(rightColor.rgb, 0.0f), 2.2f);
+    // Preserve native game lighting, darks, fog, and specular highlights without artificial gamma squaring
+    leftColor.a = 1.0f;
+    rightColor.a = 1.0f;
 
     // Output full coverage per destination pixel
     OutLeftEye[pixelPos] = leftColor;
