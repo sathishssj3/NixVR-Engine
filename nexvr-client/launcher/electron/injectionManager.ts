@@ -129,9 +129,19 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
       }
     });
 
-    const localClientBin = path.join(__dirname, '../../build/bin');
-    const rootBin = path.join(__dirname, '../../../build/bin');
-    const binSourceDir = isDev ? (fs.existsSync(localClientBin) ? localClientBin : rootBin) : process.resourcesPath;
+    const candidateBinDirs = [
+      path.resolve(__dirname, '../../../../build/bin'),
+      path.resolve(__dirname, '../../../build/bin'),
+      path.resolve(__dirname, '../../build/bin'),
+      path.resolve(app.getAppPath(), '../../build/bin'),
+      path.resolve(app.getAppPath(), '../../../build/bin'),
+      path.resolve(process.cwd(), '../build/bin'),
+      path.resolve(process.cwd(), '../../build/bin'),
+    ];
+    const devBinDir = candidateBinDirs.find(
+      (d) => fs.existsSync(d) && (fs.existsSync(path.join(d, 'vrinject.dll')) || fs.existsSync(path.join(d, 'vr-inject-cli.exe')))
+    );
+    const binSourceDir = isDev ? (devBinDir || process.resourcesPath) : process.resourcesPath;
     const canonicalBinSourceDir = canonicalExistingPath(binSourceDir, 'directory');
     const otaCli = path.join(app.getPath('userData'), 'updates', 'vr-inject-cli.exe');
     const cliSource = (fs.existsSync(otaCli) && fs.statSync(otaCli).size > 10000)
@@ -140,8 +150,23 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
           resolveWithinRoot(canonicalBinSourceDir, 'vr-inject-cli.exe'),
           'file'
         );
-    const shadersSource = resolveWithinRoot(canonicalBinSourceDir, 'shaders');
-    const modelsSource = resolveWithinRoot(canonicalBinSourceDir, 'models');
+    const candidateShaderDirs = [
+      resolveWithinRoot(canonicalBinSourceDir, 'shaders'),
+      path.resolve(__dirname, '../../../../build/bin/shaders'),
+      path.resolve(__dirname, '../../../build/bin/shaders'),
+      path.resolve(__dirname, '../../shaders'),
+      path.resolve(process.resourcesPath, 'shaders'),
+    ];
+    const shadersSource = candidateShaderDirs.find((d) => fs.existsSync(d)) || resolveWithinRoot(canonicalBinSourceDir, 'shaders');
+    const candidateModelDirs = [
+      resolveWithinRoot(canonicalBinSourceDir, 'models'),
+      path.resolve(__dirname, '../../../../nexvr-client/models'),
+      path.resolve(__dirname, '../../../../models'),
+      path.resolve(__dirname, '../../../models'),
+      path.resolve(__dirname, '../../models'),
+      path.resolve(process.resourcesPath, 'models'),
+    ];
+    const modelsSource = candidateModelDirs.find((d) => fs.existsSync(d)) || resolveWithinRoot(canonicalBinSourceDir, 'models');
 
     if (validId.startsWith('custom_') && gameExeMap[validId]) {
       const customExe = canonicalExistingPath(gameExeMap[validId], 'file');
@@ -280,15 +305,24 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
 
       const profileDirs = [
         path.join(app.getPath('userData'), 'updates', 'profiles'),
+        path.resolve(__dirname, '../../../../nexvr-client/profiles'),
+        path.resolve(__dirname, '../../../../profiles'),
         path.resolve(__dirname, '../../../profiles'),
         path.resolve(__dirname, '../../profiles'),
         path.join(process.resourcesPath, 'profiles'),
       ];
+      const exeBase = targetExeName ? path.basename(targetExeName, '.exe').toLowerCase() : '';
       for (const pDir of profileDirs) {
         try {
           if (fs.existsSync(pDir)) {
             for (const f of fs.readdirSync(pDir)) {
-              if (f.startsWith(`${validId}_`) || f === `${validId}.json`) {
+              const lowerF = f.toLowerCase();
+              let isMatch = f.startsWith(`${validId}_`) || f === `${validId}.json`;
+              if (!isMatch && validId.startsWith('custom_')) {
+                if (exeBase && (lowerF.includes(exeBase) || lowerF === `${exeBase}.json`)) isMatch = true;
+                if (lowerF.includes('sekiro') && (exeBase.includes('sekiro') || validId.includes('sekiro') || installPath.toLowerCase().includes('sekiro'))) isMatch = true;
+              }
+              if (isMatch) {
                 const parsed = JSON.parse(fs.readFileSync(path.join(pDir, f), 'utf-8'));
                 baseProfile = { ...baseProfile, ...parsed };
                 break;
@@ -296,6 +330,25 @@ ipcMain.handle('inject:deploy', async (event, id: string): Promise<InjectResult>
             }
           }
         } catch {}
+      }
+
+      // Hardened fallback for Sekiro if profile was not matched from disk
+      if (Object.keys(baseProfile).length === 0 && (exeBase.includes('sekiro') || validId.includes('sekiro') || installPath.toLowerCase().includes('sekiro'))) {
+        baseProfile = {
+          id: '814380',
+          name: 'Sekiro: Shadows Die Twice',
+          engine: 'Generic',
+          api: 'DX11',
+          reverseZ: false,
+          rowMajorMatrices: false,
+          matrixPrecision: 'Float32',
+          motionAimSensitivity: 1.0,
+          useRecommendedResolution: true,
+          srgbCorrection: false,
+          depthSubmission: false,
+          rawInputMode: true,
+          autoInjectOnLaunch: true,
+        };
       }
 
       let activeConfig: Record<string, any> = { ...baseProfile };

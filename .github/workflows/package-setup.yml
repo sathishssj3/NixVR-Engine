@@ -147,7 +147,7 @@ jobs:
           retention-days: 30
 
       - name: Publish to NexVR-Engine Releases (Local Repo)
-        if: startsWith(github.ref, 'refs/tags/') || inputs.release_tag != ''
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || inputs.release_tag != ''
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.release_tag || 'v0.1.0' }}
@@ -158,11 +158,11 @@ jobs:
             nexvr-client/launcher/dist-electron/*.zip
 
       - name: Publish to NexVR-Engine-Releases Repo
-        if: startsWith(github.ref, 'refs/tags/') || (inputs.publish_to_releases_repo == true)
+        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main' || (inputs.publish_to_releases_repo == true)
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets['RELEASES_REPO_TOKEN'] || '' }}
-          TAG: ${{ inputs.release_tag || github.ref_name }}
+          TAG: ${{ inputs.release_tag || 'v0.1.0' }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
             Write-Host "No RELEASES_REPO_TOKEN secret found. Skipping cross-repo release upload."

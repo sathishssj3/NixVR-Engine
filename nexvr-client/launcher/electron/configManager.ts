@@ -181,10 +181,25 @@ ipcMain.handle('config:read', async (event, id: string): Promise<VRConfig> => {
     const validId = validateGameId(id);
     const installPath = gamePathsMap[validId];
     const registeredExe = gameExeMap[validId];
-    const targetDir = registeredExe ? path.dirname(registeredExe) : undefined;
-    const initialConfig = { ...defaultVRConfig, ...(activeProfiles[validId] || {}) };
+    let matchedProfile = activeProfiles[validId];
+    if (!matchedProfile && validId.startsWith('custom_')) {
+      const exeName = registeredExe ? path.basename(registeredExe, '.exe').toLowerCase() : '';
+      const dirName = installPath ? path.basename(installPath).toLowerCase() : '';
+      if (exeName.includes('sekiro') || dirName.includes('sekiro')) {
+        matchedProfile = activeProfiles['814380'];
+      } else {
+        for (const [pId, pCfg] of Object.entries(activeProfiles)) {
+          if (exeName && (pId.includes(exeName) || (pCfg as any).name?.toLowerCase().includes(exeName))) {
+            matchedProfile = pCfg;
+            break;
+          }
+        }
+      }
+    }
+    const initialConfig = { ...defaultVRConfig, ...(matchedProfile || {}) };
     if (!installPath) return initialConfig;
 
+    const targetDir = registeredExe ? path.dirname(registeredExe) : undefined;
     // Check target binary directory first, then root install directory
     const candidatePaths: string[] = [];
     if (targetDir) candidatePaths.push(path.join(targetDir, 'vrinject.json'));
